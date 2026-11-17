@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const maxArchive = 250 << 20
@@ -23,7 +24,6 @@ const hostName = "com.wtlive.skin_installer"
 
 var postID = regexp.MustCompile(`^[0-9]{1,12}$`)
 var allowedFile = regexp.MustCompile(`(?i)\.(blk|dds|tga|png|jpg|jpeg|bmp|webp|tif|tiff|ktx|txt)$`)
-var safeLabel = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 var reservedName = regexp.MustCompile(`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)`)
 
 type config struct {
@@ -42,6 +42,7 @@ type livePost struct {
 	Type string `json:"type"`
 	File struct {
 		Link string `json:"link"`
+		Name string `json:"name"`
 		Size int64  `json:"size"`
 	} `json:"file"`
 }
@@ -84,7 +85,7 @@ func run(answer *reply) error {
 	}
 	settings, err := os.ReadFile(filepath.Join(filepath.Dir(self), "config.json"))
 	if err != nil {
-		return errors.New("Не найдена настройка помощника. Запустите install.ps1.")
+		return errors.New("Не найдена настройка помощника. Запустите WT-Live-Setup.exe.")
 	}
 	var cfg config
 	if err := json.Unmarshal(settings, &cfg); err != nil {
@@ -109,7 +110,8 @@ func run(answer *reply) error {
 	if info, err := os.Stat(cfg.UserSkins); err != nil || !info.IsDir() {
 		return errors.New("Папка UserSkins не найдена.")
 	}
-	archive, err := download(req.Post)
+	var archiveName string
+	archive, err := download(req.Post, &archiveName)
 	if err != nil {
 		return err
 	}
@@ -128,7 +130,7 @@ func run(answer *reply) error {
 		return err
 	}
 	for _, g := range groups {
-		if err := installGroup(cfg.UserSkins, req.Post, g); err != nil {
+		if err := installGroup(cfg.UserSkins, folderName(archiveName, g.Label, len(groups)), g); err != nil {
 			return err
 		}
 	}
@@ -152,7 +154,7 @@ func allowedHost(u *url.URL) bool {
 	return u.Scheme == "https" && (u.Hostname() == "live.warthunder.com" || u.Hostname() == "cdn-live.warthunder.com")
 }
 
-func download(post string) (*os.File, error) {
+func download(post string, archiveName *string) (*os.File, error) {
 	client := &http.Client{Timeout: 5 * time.Minute, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		if len(via) > 5 || !allowedHost(r.URL) {
 			return errors.New("Недопустимое перенаправление WT Live.")
@@ -182,6 +184,7 @@ func download(post string) (*os.File, error) {
 	if item.File.Size > maxArchive {
 		return nil, errors.New("Архив больше 250 МБ.")
 	}
+	*archiveName = item.File.Name
 	resp, err = client.Get(u.String())
 	if err != nil {
 		return nil, err
@@ -278,18 +281,25 @@ func plan(files []*zip.File) ([]group, error) {
 			entries[i].Parts = entries[i].Parts[1:]
 		}
 	}
+	configsInFolder := map[string]int{}
+	for _, e := range entries {
+		if strings.EqualFold(path.Ext(e.Parts[len(e.Parts)-1]), ".blk") {
+			configsInFolder[strings.Join(e.Parts[:len(e.Parts)-1], "/")]++
+		}
+	}
 	var groups []group
 	for _, cfg := range entries {
 		if !strings.EqualFold(path.Ext(cfg.Parts[len(cfg.Parts)-1]), ".blk") {
 			continue
 		}
 		parent := cfg.Parts[:len(cfg.Parts)-1]
-		label := safeLabel.ReplaceAllString(strings.Join(append(append([]string{}, parent...), strings.TrimSuffix(cfg.Parts[len(cfg.Parts)-1], path.Ext(cfg.Parts[len(cfg.Parts)-1]))), "_"), "_")
-		if len(label) > 90 {
-			label = label[:90]
-		}
-		if label == "" {
-			label = "skin"
+		stem := strings.TrimSuffix(cfg.Parts[len(cfg.Parts)-1], path.Ext(cfg.Parts[len(cfg.Parts)-1]))
+		label := stem
+		if len(parent) > 0 {
+			label = parent[len(parent)-1]
+			if configsInFolder[strings.Join(parent, "/")] > 1 {
+				label += " " + stem
+			}
 		}
 		g := group{Label: label, Files: []entry{{[]string{cfg.Parts[len(cfg.Parts)-1]}, cfg.File}}}
 		for _, asset := range entries {
@@ -317,14 +327,55 @@ func plan(files []*zip.File) ([]group, error) {
 	return groups, nil
 }
 
-func installGroup(root, post string, g group) error {
-	base := "wt_live_" + post + "_" + g.Label
+func cleanFolderName(value string) string {
+	value = strings.ReplaceAll(value, "_", " ")
+	value = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || strings.ContainsRune(`<>:"/\|?*`, r) {
+			return ' '
+		}
+		return r
+	}, value)
+	value = strings.Join(strings.Fields(value), " ")
+	value = strings.TrimRight(value, " .")
+	runes := []rune(value)
+	if len(runes) > 110 {
+		value = string(runes[:110])
+	}
+	value = strings.TrimRight(value, " .")
+	if reservedName.MatchString(value) {
+		value = "_" + value
+	}
+	if value == "" {
+		return "Скин WT Live"
+	}
+	return value
+}
+
+func folderName(archiveName, variant string, count int) string {
+	archiveName = strings.TrimSuffix(archiveName, path.Ext(archiveName))
+	title := cleanFolderName(archiveName)
+	if count == 1 {
+		return title
+	}
+	runes := []rune(title)
+	if len(runes) > 65 {
+		title = string(runes[:65])
+	}
+	variant = cleanFolderName(variant)
+	runes = []rune(variant)
+	if len(runes) > 40 {
+		variant = string(runes[:40])
+	}
+	return cleanFolderName(title + " - " + variant)
+}
+
+func installGroup(root, base string, g group) error {
 	var dest string
 	created := false
 	for i := 0; i < 1000; i++ {
 		name := base
 		if i > 0 {
-			name = fmt.Sprintf("%s_%d", base, i+1)
+			name = fmt.Sprintf("%s (%d)", base, i+1)
 		}
 		dest = filepath.Join(root, name)
 		err := os.Mkdir(dest, 0755)

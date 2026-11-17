@@ -67,3 +67,12 @@ func TestRejectOtherHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestFolderNames(t *testing.T) {
+	if got := folderName("Maus, 'Alles Kaputt', 1945.zip", "germ_pzkpfw_Maus", 1); got != "Maus, 'Alles Kaputt', 1945" {
+		t.Fatalf("single skin: %q", got)
+	}
+	if got := folderName("Blackout_10.3+10.7_Germany.zip", "Blackout_boxer_3105", 8); got != "Blackout 10.3+10.7 Germany - Blackout boxer 3105" {
+		t.Fatalf("pack skin: %q", got)
+	}
+}

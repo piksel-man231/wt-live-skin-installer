@@ -43,6 +43,7 @@ globalThis.WtSkinArchive = (() => {
     const configs = entries.filter(e => /\.blk$/i.test(e.path.at(-1)));
     return configs.map(config => {
       const parent = config.path.slice(0, -1);
+      const configsInFolder = configs.filter(e => e.path.slice(0, -1).join('/') === parent.join('/')).length;
       const assets = entries.filter(e => {
         if (e === config || /\.blk$/i.test(e.path.at(-1))) return false;
         // Files next to the config and in its subfolders belong to this skin.
@@ -50,9 +51,8 @@ globalThis.WtSkinArchive = (() => {
         const sameTree = parent.every((segment, i) => e.path[i] === segment);
         return sameTree || (parent.length > 0 && e.path.length === 1);
       });
-      const prefix = parent.length ? parent.join('_') + '_' : '';
-      const label = (prefix + config.path.at(-1).replace(/\.blk$/i, ''))
-        .replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(0, 90) || 'skin';
+      const variant = parent.at(-1) || config.path.at(-1).replace(/\.blk$/i, '');
+      const label = (configsInFolder > 1 && parent.length ? `${variant} ${config.path.at(-1).replace(/\.blk$/i, '')}` : variant).slice(0, 90);
       return {
         label,
         files: [config, ...assets].map(e => ({

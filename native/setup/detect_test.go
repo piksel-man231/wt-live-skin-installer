@@ -48,7 +48,7 @@ func TestUpdateExistingExtension(t *testing.T) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Version != "0.3.1" {
+	if manifest.Version != "0.3.2" {
 		t.Fatalf("got version %s", manifest.Version)
 	}
 }

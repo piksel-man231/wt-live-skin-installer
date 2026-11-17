@@ -33,7 +33,7 @@ globalThis.WtSkinCore = (() => {
   }
   async function nextFolder(root, base) {
     for (let i = 0; i < 1000; i++) {
-      const name = i ? `${base}_${i + 1}` : base;
+      const name = i ? `${base} (${i + 1})` : base;
       try { await root.getDirectoryHandle(name); }
       catch (error) {
         if (error.name === 'NotFoundError') return root.getDirectoryHandle(name, { create: true });
@@ -41,6 +41,21 @@ globalThis.WtSkinCore = (() => {
       }
     }
     throw new Error('Не удалось подобрать имя папки для скина.');
+  }
+  function cleanFolderName(value) {
+    let name = value.replace(/\.zip$/i, '').replaceAll('_', ' ')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/[. ]+$/g, '');
+    name = Array.from(name).slice(0, 110).join('').replace(/[. ]+$/g, '');
+    if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name)) name = `_${name}`;
+    return name || 'Скин WT Live';
+  }
+  function installationFolderName(archiveName, groupLabel, count) {
+    const title = cleanFolderName(archiveName);
+    if (count === 1) return title;
+    const shortTitle = Array.from(title).slice(0, 65).join('');
+    const variant = Array.from(cleanFolderName(groupLabel)).slice(0, 40).join('');
+    return cleanFolderName(`${shortTitle} - ${variant}`);
   }
   async function writeFiles(root, group) {
     for (const file of group.files) {
@@ -64,10 +79,10 @@ globalThis.WtSkinCore = (() => {
     let done = 0;
     for (const group of groups) {
       progress(`Устанавливаем ${++done} из ${groups.length}: ${group.label}…`);
-      const folder = await nextFolder(directory, `wt_live_${post}_${group.label}`.slice(0, 120));
+      const folder = await nextFolder(directory, installationFolderName(skin.name, group.label, groups.length));
       await writeFiles(folder, group);
     }
     return groups.length;
   }
-  return { store, loadPost, install };
+  return { store, loadPost, install, installationFolderName };
 })();
