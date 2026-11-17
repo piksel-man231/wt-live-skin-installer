@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "WT Live Skin Installer",
+  "version": "0.1.0",
+  "description": "Установка камуфляжей WT Live в папку UserSkins",
+  "permissions": [],
+  "host_permissions": [
+    "https://live.warthunder.com/*",
+    "https://cdn-live.warthunder.com/*"
+  ],
+  "content_scripts": [{
+    "matches": ["https://live.warthunder.com/*"],
+    "js": ["content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }],
+  "action": {
+    "default_title": "WT Live Skin Installer",
+    "default_popup": "popup.html"
+  }
+}

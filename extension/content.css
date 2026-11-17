@@ -1,0 +1,16 @@
+.wt-skin-install {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px !important;
+  margin: 8px 0 0 !important;
+  border: 0;
+  border-radius: 5px;
+  background: #4b8b50 !important;
+  color: #fff !important;
+  font: 600 14px Arial, sans-serif !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+.wt-skin-install:hover { background: #39743e !important; }
