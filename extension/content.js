@@ -1,6 +1,4 @@
 (() => {
-  const installerUrl = chrome.runtime.getURL('install.html');
-
   function addButtons() {
     // WT Live inserts post cards and the post lightbox dynamically.
     for (const download of document.querySelectorAll('a.downloadButton, #clb a.downloads[href], .feed_item a.downloads[href]')) {
@@ -10,12 +8,19 @@
       const id = container?.getAttribute('lang_group') || match?.[1];
       if (!/^\d+$/.test(id || '')) continue;
       download.dataset.wtSkinInstaller = '1';
-      const button = document.createElement('a');
+      const button = document.createElement('button');
       button.className = 'wt-skin-install';
+      button.type = 'button';
       button.textContent = 'Установить скин';
-      button.href = `${installerUrl}?post=${encodeURIComponent(id)}`;
-      button.target = '_blank';
-      button.rel = 'noopener noreferrer';
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        chrome.runtime.sendMessage({ type: 'OPEN_INSTALLER', post: id }, () => {
+          if (chrome.runtime.lastError) {
+            button.textContent = 'Не удалось открыть — обновите расширение';
+          }
+        });
+      });
       download.insertAdjacentElement('afterend', button);
     }
   }
