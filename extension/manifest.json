@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "WT Live Skin Installer",
-  "version": "0.3.3",
+  "version": "0.4.0",
+  "icons": { "128": "icon128.png" },
   "description": "Установка камуфляжей WT Live в папку UserSkins",
   "permissions": ["nativeMessaging"],
   "host_permissions": [

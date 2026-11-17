@@ -19,10 +19,19 @@ import (
 var hostBinary []byte
 
 func main() {
+	storePage, err := storeListingURL(storeExtensionID)
+	if err != nil {
+		messageBox("WT Live Skin Installer", err.Error(), 0x10)
+		os.Exit(1)
+	}
 	var firstRunFolder string
 	if err := install(&firstRunFolder); err != nil {
 		messageBox("WT Live Skin Installer", "Не удалось установить помощник:\n\n"+err.Error(), 0x10)
 		os.Exit(1)
+	}
+	if storePage != "" {
+		showStoreSetup(storePage)
+		return
 	}
 	if firstRunFolder != "" {
 		showFirstRun(firstRunFolder)
@@ -53,13 +62,18 @@ func install(firstRunFolder *string) error {
 	if err := os.MkdirAll(userSkins, 0755); err != nil {
 		return err
 	}
-	installs := discoverExtensionInstalls(
-		filepath.Join(local, "Vivaldi", "User Data"),
-		filepath.Join(local, "Google", "Chrome", "User Data"),
-	)
 	target := filepath.Join(local, "WtLiveSkinInstaller")
+	var installs []extensionInstall
+	if storeExtensionID == "" {
+		installs = discoverExtensionInstalls(
+			filepath.Join(local, "Vivaldi", "User Data"),
+			filepath.Join(local, "Google", "Chrome", "User Data"),
+		)
+	}
 	ids := make([]string, 0, len(installs)+1)
-	if len(installs) == 0 {
+	if storeExtensionID != "" {
+		ids = append(ids, storeExtensionID)
+	} else if len(installs) == 0 {
 		folder := filepath.Join(target, "extension")
 		if err := updateExtension(folder); err != nil {
 			return fmt.Errorf("Не удалось распаковать расширение: %w", err)

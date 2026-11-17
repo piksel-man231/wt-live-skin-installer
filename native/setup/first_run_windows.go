@@ -28,6 +28,19 @@ func showFirstRun(folder string) {
 }
 
 func openExtensionsPage() bool {
+	return openBrowserPage("")
+}
+
+func showStoreSetup(page string) {
+	if openBrowserPage(page) {
+		messageBox("WT Live Skin Installer", "Помощник установлен. На открывшейся странице Chrome Web Store нажмите «Добавить» и подтвердите установку расширения.", 0x40)
+		return
+	}
+	copyFolderPath(page)
+	messageBox("WT Live Skin Installer", "Помощник установлен. Откройте этот адрес в Vivaldi или Chrome и нажмите «Добавить»: \n\n"+page, 0x40)
+}
+
+func openBrowserPage(storePage string) bool {
 	browsers := []struct {
 		executable string
 		folder     string
@@ -46,7 +59,11 @@ func openExtensionsPage() bool {
 			if info, err := os.Stat(executable); err != nil || info.IsDir() {
 				continue
 			}
-			if err := exec.Command(executable, browser.page).Start(); err == nil {
+			page := browser.page
+			if storePage != "" {
+				page = storePage
+			}
+			if err := exec.Command(executable, page).Start(); err == nil {
 				return true
 			}
 		}
