@@ -14,3 +14,4 @@
   cursor: pointer;
 }
 .wt-skin-install:hover { background: #39743e !important; }
+.wt-skin-install:disabled { opacity: .65; cursor: wait; }

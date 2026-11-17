@@ -15,9 +15,20 @@
       button.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
-        chrome.runtime.sendMessage({ type: 'OPEN_INSTALLER', post: id }, () => {
+        if (button.disabled) return;
+        button.disabled = true;
+        button.textContent = 'Устанавливаем…';
+        chrome.runtime.sendMessage({ type: 'INSTALL_SKIN', post: id }, result => {
+          button.disabled = false;
           if (chrome.runtime.lastError) {
-            button.textContent = 'Не удалось открыть — обновите расширение';
+            button.textContent = 'Ошибка — обновите расширение';
+          } else if (result?.installed) {
+            button.textContent = `Установлено: ${result.installed}`;
+          } else if (result?.opened) {
+            button.textContent = 'Установить скин';
+          } else {
+            button.textContent = 'Ошибка установки';
+            button.title = result?.error || 'Не удалось установить скин.';
           }
         });
       });
