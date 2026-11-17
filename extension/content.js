@@ -27,7 +27,7 @@
           } else if (result?.opened) {
             button.textContent = 'Установить скин';
           } else {
-            button.textContent = 'Ошибка установки';
+            button.textContent = result?.error?.startsWith('Помощник не подключен') ? 'Помощник не подключен' : 'Ошибка установки';
             button.title = result?.error || 'Не удалось установить скин.';
           }
         });

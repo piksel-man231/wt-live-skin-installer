@@ -23,12 +23,32 @@ func TestDiscoverUnpackedExtension(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(profile, "Secure Preferences"), b, 0644); err != nil {
 		t.Fatal(err)
 	}
-	manifest := `{"name":"WT Live Skin Installer","permissions":["nativeMessaging"]}`
+	manifest := `{"name":"WT Live Skin Installer","host_permissions":["https://live.warthunder.com/*"]}`
 	if err := os.WriteFile(filepath.Join(extension, "manifest.json"), []byte(manifest), 0644); err != nil {
 		t.Fatal(err)
 	}
 	ids := discoverExtensions(root)
 	if len(ids) != 1 || ids[0] != id {
 		t.Fatalf("got %v", ids)
+	}
+}
+
+func TestUpdateExistingExtension(t *testing.T) {
+	dir := t.TempDir()
+	if err := updateExtension(dir); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Version != "0.3.1" {
+		t.Fatalf("got version %s", manifest.Version)
 	}
 }

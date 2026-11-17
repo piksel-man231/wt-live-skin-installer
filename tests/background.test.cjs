@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function background({ native = null, directory = null } = {}) {
+function background({ native = null, directory = null, visited = false } = {}) {
   const opened = [];
   const calls = [];
   let listener;
@@ -22,7 +22,7 @@ function background({ native = null, directory = null } = {}) {
     tabs: { async create(options) { opened.push(options.url); } }
   };
   const WtSkinCore = {
-    async store() { return directory; },
+    async store(mode, value, key) { return key === 'setupVisited' ? visited : directory; },
     async loadPost() { return { url: 'https://live.warthunder.com/dl/test/' }; },
     async install() { return 2; }
   };
@@ -52,6 +52,13 @@ test('opens setup page when no helper or saved folder exists', async () => {
 test('installs directly into a saved folder while access is granted', async () => {
   const app = background({ directory: { kind: 'directory', async queryPermission() { return 'granted'; } } });
   assert.equal((await app.send({ type: 'INSTALL_SKIN', post: '1173999' })).installed, 2);
+  assert.deepEqual(app.opened, []);
+});
+
+test('reports missing helper without reopening setup after first visit', async () => {
+  const app = background({ visited: true });
+  const result = await app.send({ type: 'INSTALL_SKIN', post: '1173999' });
+  assert.match(result.error, /Помощник не подключен/);
   assert.deepEqual(app.opened, []);
 });
 

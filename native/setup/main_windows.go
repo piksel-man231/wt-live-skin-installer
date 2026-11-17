@@ -23,7 +23,7 @@ func main() {
 		messageBox("WT Live Skin Installer", "Не удалось установить помощник:\n\n"+err.Error(), 0x10)
 		os.Exit(1)
 	}
-	messageBox("WT Live Skin Installer", "Помощник установлен. Перезапустите браузер. Теперь кнопка на WT Live будет устанавливать скин сразу, без отдельной вкладки.", 0x40)
+	messageBox("WT Live Skin Installer", "Расширение обновлено и помощник установлен. Полностью закройте и снова откройте браузер. Теперь кнопка на WT Live будет устанавливать скин сразу, без отдельной вкладки.", 0x40)
 }
 
 func messageBox(title, body string, style uintptr) {
@@ -48,12 +48,19 @@ func install() error {
 	if err := os.MkdirAll(userSkins, 0755); err != nil {
 		return err
 	}
-	ids := discoverExtensions(
+	installs := discoverExtensionInstalls(
 		filepath.Join(local, "Vivaldi", "User Data"),
 		filepath.Join(local, "Google", "Chrome", "User Data"),
 	)
-	if len(ids) == 0 {
-		return errors.New("Не найдено обновлённое расширение WT Live Skin Installer в Vivaldi или Chrome. Сначала обновите расширение на странице расширений и перезапустите браузер.")
+	if len(installs) == 0 {
+		return errors.New("Не найдено расширение WT Live Skin Installer в Vivaldi или Chrome. Установите расширение из репозитория и запустите установщик снова.")
+	}
+	ids := make([]string, 0, len(installs))
+	for _, extension := range installs {
+		if err := updateExtension(extension.Path); err != nil {
+			return fmt.Errorf("Не удалось обновить расширение: %w", err)
+		}
+		ids = append(ids, extension.ID)
 	}
 	target := filepath.Join(local, "WtLiveSkinInstaller")
 	if err := os.MkdirAll(target, 0755); err != nil {

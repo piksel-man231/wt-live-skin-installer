@@ -4,7 +4,7 @@ function nativeInstall(post) {
   return new Promise(resolve => {
     chrome.runtime.sendNativeMessage('com.wtlive.skin_installer', { post }, reply => {
       const error = chrome.runtime.lastError;
-      if (error) resolve({ available: false });
+      if (error) resolve({ available: false, error: error.message });
       else resolve({ available: true, reply });
     });
   });
@@ -24,6 +24,9 @@ async function installOrOpen(post) {
       const skin = await WtSkinCore.loadPost(post);
       const count = await WtSkinCore.install(post, directory, skin);
       return { installed: count };
+    }
+    if (!directory && await WtSkinCore.store('get', undefined, 'setupVisited')) {
+      return { error: `Помощник не подключен: ${native.error || 'проверьте установку и перезапустите браузер'}` };
     }
   } catch (error) {
     return { error: error.message || 'Не удалось установить скин.' };

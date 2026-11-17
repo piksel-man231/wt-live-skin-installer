@@ -1,5 +1,5 @@
 globalThis.WtSkinCore = (() => {
-  function store(mode, value) {
+  function store(mode, value, key = 'userSkins') {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('wt-skin-installer', 1);
       request.onupgradeneeded = () => request.result.createObjectStore('settings');
@@ -7,7 +7,7 @@ globalThis.WtSkinCore = (() => {
       request.onsuccess = () => {
         const db = request.result;
         const tx = db.transaction('settings', mode === 'get' ? 'readonly' : 'readwrite');
-        const op = mode === 'get' ? tx.objectStore('settings').get('userSkins') : tx.objectStore('settings').put(value, 'userSkins');
+        const op = mode === 'get' ? tx.objectStore('settings').get(key) : tx.objectStore('settings').put(value, key);
         op.onsuccess = () => resolve(op.result);
         op.onerror = () => reject(op.error);
         tx.oncomplete = () => db.close();

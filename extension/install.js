@@ -69,5 +69,6 @@
     });
   });
   WtSkinCore.store('get').then(handle => { if (handle?.kind === 'directory') { directory = handle; refresh(); } }).catch(() => {});
+  WtSkinCore.store('put', true, 'setupVisited').catch(() => {});
   loadPost().catch(error => { nameEl.textContent = 'Не удалось открыть публикацию'; status(error.message, 'error'); });
 })();

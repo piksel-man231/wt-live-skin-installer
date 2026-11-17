@@ -19,12 +19,17 @@ type extensionPrefs struct {
 }
 
 type extensionManifest struct {
-	Name        string   `json:"name"`
-	Permissions []string `json:"permissions"`
+	Name  string   `json:"name"`
+	Hosts []string `json:"host_permissions"`
 }
 
-func discoverExtensions(userDataRoots ...string) []string {
-	seen := map[string]bool{}
+type extensionInstall struct {
+	ID   string
+	Path string
+}
+
+func discoverExtensionInstalls(userDataRoots ...string) []extensionInstall {
+	seen := map[string]extensionInstall{}
 	for _, root := range userDataRoots {
 		profiles, err := os.ReadDir(root)
 		if err != nil {
@@ -45,14 +50,10 @@ func discoverExtensions(userDataRoots ...string) []string {
 					continue
 				}
 				for id, setting := range prefs.Extensions.Settings {
-					if !extensionID.MatchString(id) || setting.Path == "" {
+					if !extensionID.MatchString(id) || !filepath.IsAbs(setting.Path) {
 						continue
 					}
-					candidate := setting.Path
-					if !filepath.IsAbs(candidate) {
-						candidate = filepath.Join(base, "Extensions", candidate)
-					}
-					data, err := os.ReadFile(filepath.Join(candidate, "manifest.json"))
+					data, err := os.ReadFile(filepath.Join(setting.Path, "manifest.json"))
 					if err != nil {
 						continue
 					}
@@ -60,9 +61,9 @@ func discoverExtensions(userDataRoots ...string) []string {
 					if json.Unmarshal(data, &manifest) != nil || manifest.Name != "WT Live Skin Installer" {
 						continue
 					}
-					for _, p := range manifest.Permissions {
-						if strings.EqualFold(p, "nativeMessaging") {
-							seen[id] = true
+					for _, host := range manifest.Hosts {
+						if strings.EqualFold(host, "https://live.warthunder.com/*") {
+							seen[id] = extensionInstall{ID: id, Path: setting.Path}
 							break
 						}
 					}
@@ -70,9 +71,18 @@ func discoverExtensions(userDataRoots ...string) []string {
 			}
 		}
 	}
-	ids := make([]string, 0, len(seen))
-	for id := range seen {
-		ids = append(ids, id)
+	installs := make([]extensionInstall, 0, len(seen))
+	for _, install := range seen {
+		installs = append(installs, install)
+	}
+	return installs
+}
+
+func discoverExtensions(userDataRoots ...string) []string {
+	installs := discoverExtensionInstalls(userDataRoots...)
+	ids := make([]string, len(installs))
+	for i, install := range installs {
+		ids[i] = install.ID
 	}
 	return ids
 }
