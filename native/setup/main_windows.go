@@ -19,9 +19,14 @@ import (
 var hostBinary []byte
 
 func main() {
-	if err := install(); err != nil {
+	var firstRunFolder string
+	if err := install(&firstRunFolder); err != nil {
 		messageBox("WT Live Skin Installer", "Не удалось установить помощник:\n\n"+err.Error(), 0x10)
 		os.Exit(1)
+	}
+	if firstRunFolder != "" {
+		showFirstRun(firstRunFolder)
+		return
 	}
 	messageBox("WT Live Skin Installer", "Расширение обновлено и помощник установлен. Полностью закройте и снова откройте браузер. Теперь кнопка на WT Live будет устанавливать скин сразу, без отдельной вкладки.", 0x40)
 }
@@ -34,7 +39,7 @@ func messageBox(title, body string, style uintptr) {
 	fn.Call(0, uintptr(unsafe.Pointer(b)), uintptr(unsafe.Pointer(t)), style)
 }
 
-func install() error {
+func install(firstRunFolder *string) error {
 	local := os.Getenv("LOCALAPPDATA")
 	if local == "" {
 		return errors.New("Не найдена папка AppData текущего пользователя.")
@@ -52,17 +57,22 @@ func install() error {
 		filepath.Join(local, "Vivaldi", "User Data"),
 		filepath.Join(local, "Google", "Chrome", "User Data"),
 	)
+	target := filepath.Join(local, "WtLiveSkinInstaller")
+	ids := make([]string, 0, len(installs)+1)
 	if len(installs) == 0 {
-		return errors.New("Не найдено расширение WT Live Skin Installer в Vivaldi или Chrome. Установите расширение из репозитория и запустите установщик снова.")
+		folder := filepath.Join(target, "extension")
+		if err := updateExtension(folder); err != nil {
+			return fmt.Errorf("Не удалось распаковать расширение: %w", err)
+		}
+		ids = append(ids, unpackedWindowsID(folder))
+		*firstRunFolder = folder
 	}
-	ids := make([]string, 0, len(installs))
 	for _, extension := range installs {
 		if err := updateExtension(extension.Path); err != nil {
 			return fmt.Errorf("Не удалось обновить расширение: %w", err)
 		}
 		ids = append(ids, extension.ID)
 	}
-	target := filepath.Join(local, "WtLiveSkinInstaller")
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return err
 	}

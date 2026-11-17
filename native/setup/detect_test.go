@@ -48,7 +48,14 @@ func TestUpdateExistingExtension(t *testing.T) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Version != "0.3.2" {
+	if manifest.Version != "0.3.3" {
 		t.Fatalf("got version %s", manifest.Version)
+	}
+}
+
+func TestUnpackedWindowsID(t *testing.T) {
+	path := `c:\Users\Игрок\AppData\Local\WtLiveSkinInstaller\extension`
+	if got := unpackedWindowsID(path); got != "afcocbcihgblnpibfefaakdoidpeikbb" {
+		t.Fatalf("wrong Chromium extension ID: %q", got)
 	}
 }
