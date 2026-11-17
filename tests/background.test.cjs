@@ -3,29 +3,62 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function background() {
+function background({ native = null, directory = null } = {}) {
   const opened = [];
+  const calls = [];
   let listener;
   const chrome = {
     runtime: {
+      lastError: null,
       onMessage: { addListener(fn) { listener = fn; } },
-      getURL(path) { return `chrome-extension://test/${path}`; }
+      getURL(path) { return `chrome-extension://test/${path}`; },
+      sendNativeMessage(name, message, callback) {
+        calls.push(message.post);
+        chrome.runtime.lastError = native ? null : { message: 'host not found' };
+        callback(native);
+        chrome.runtime.lastError = null;
+      }
     },
-    tabs: { create(options) { opened.push(options.url); } }
+    tabs: { async create(options) { opened.push(options.url); } }
   };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../extension/background.js'), 'utf8'), { chrome, URL });
-  return { opened, send: (message, url) => listener(message, { tab: { id: 1 }, url }) };
+  const WtSkinCore = {
+    async store() { return directory; },
+    async loadPost() { return { url: 'https://live.warthunder.com/dl/test/' }; },
+    async install() { return 2; }
+  };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../extension/background.js'), 'utf8'), {
+    chrome, WtSkinCore, URL, importScripts() {}
+  });
+  return {
+    opened, calls,
+    invoke: (message, url) => listener(message, { tab: { id: 1 }, url }, () => {}),
+    send: (message, url = 'https://live.warthunder.com/post/1173999/en/') =>
+      new Promise(resolve => listener(message, { tab: { id: 1 }, url }, resolve))
+  };
 }
 
-test('opens installer from WT Live through extension API', () => {
+test('installs directly through native helper without opening a tab', async () => {
+  const app = background({ native: { ok: true, count: 8 } });
+  assert.equal((await app.send({ type: 'INSTALL_SKIN', post: '1173999' })).installed, 8);
+  assert.deepEqual(app.opened, []);
+});
+
+test('opens setup page when no helper or saved folder exists', async () => {
   const app = background();
-  app.send({ type: 'OPEN_INSTALLER', post: '1173999' }, 'https://live.warthunder.com/post/1173999/en/');
+  assert.equal((await app.send({ type: 'INSTALL_SKIN', post: '1173999' })).opened, true);
   assert.deepEqual(app.opened, ['chrome-extension://test/install.html?post=1173999']);
 });
 
-test('rejects messages from other sites and invalid post IDs', () => {
+test('installs directly into a saved folder while access is granted', async () => {
+  const app = background({ directory: { kind: 'directory', async queryPermission() { return 'granted'; } } });
+  assert.equal((await app.send({ type: 'INSTALL_SKIN', post: '1173999' })).installed, 2);
+  assert.deepEqual(app.opened, []);
+});
+
+test('ignores messages from other sites and invalid post IDs', () => {
   const app = background();
-  app.send({ type: 'OPEN_INSTALLER', post: '1173999' }, 'https://example.com/');
-  app.send({ type: 'OPEN_INSTALLER', post: '../other' }, 'https://live.warthunder.com/');
+  app.invoke({ type: 'INSTALL_SKIN', post: '1173999' }, 'https://example.com/');
+  app.invoke({ type: 'INSTALL_SKIN', post: '../other' }, 'https://live.warthunder.com/');
+  assert.equal(app.calls.length, 0);
   assert.equal(app.opened.length, 0);
 });
